@@ -10,7 +10,7 @@ func main() {
   tunnel := gotunnelme.NewTunnel()
   fmt.Println("\nTunnel using http://ajm.al \n=========")
   subdomainPtr := flag.String("s", "project1", "a subdomain")
-  portPtr := flag.Int("port", 8080, "local port")
+  portPtr := flag.Int("p", 8080, "local port")
   flag.Parse()
 
   url, getUrlErr := tunnel.GetUrl(*subdomainPtr)
@@ -21,7 +21,7 @@ func main() {
     fmt.Println("Url Created")
     fmt.Println("Get Url:", url)
     fmt.Printf("Creating Tunnel... on Port %d \n", *portPtr)
-    
+
     tunnelErr := tunnel.CreateTunnel(*portPtr)
     if tunnelErr != nil {
       fmt.Println(tunnelErr)
