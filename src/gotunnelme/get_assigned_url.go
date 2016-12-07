@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 )
 
 const (
@@ -25,18 +26,35 @@ func GetAssignedUrl(assignedDomain string) (*AssignedUrlInfo, error) {
 	}
 	tunnelserverUrl := fmt.Sprintf(localtunnelServer+"%s", assignedDomain)
 	fmt.Println(tunnelserverUrl)
-	
-	proxyUrl, err := url.Parse("http://www-proxy.ericsson.se:8080")
-	
-	if err != nil {
-		return nil, err
+
+	proxy := os.Getenv("HTTP_PROXY")
+	if proxy == "" {
+		proxy = os.Getenv("http_proxy")
 	}
-	
-	myClient := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
+
+	httpClient := http.DefaultClient
+
+	if len(proxy) > 0 {
+		proxyUrl, err := url.Parse(proxy)
+
+		if err != nil {
+			return nil, err
+		}else{
+			if Debug {
+				fmt.Printf("ProxyUrl Parsing Error!")
+			}
+		}
+		httpClient = &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
+	}
 
 	request, _ := http.NewRequest("GET", tunnelserverUrl, nil)
-	response, httpErr := myClient.Do(request)
-	
+
+	response, httpErr := http.DefaultClient.Do(request)
+
+	if len(proxy) > 0 {
+		response, httpErr = httpClient.Do(request)
+	}
+
 	if httpErr != nil {
 		return nil, httpErr
 	}

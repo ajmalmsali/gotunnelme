@@ -17,16 +17,19 @@ var Debug = false
 type TunnelConn struct {
 	remoteHost   string
 	remotePort   int
+	localHost    string
 	localPort    int
+	localTLS		bool
 	remoteConn   net.Conn
 	localConn    net.Conn
 	errorChannel chan error
 }
 
-func NewTunnelConn(remoteHost string, remotePort, localPort int) *TunnelConn {
+func NewTunnelConn(remoteHost string, remotePort int, localHost string, localPort int) *TunnelConn {
 	tunnelConn := &TunnelConn{}
 	tunnelConn.remoteHost = remoteHost
 	tunnelConn.remotePort = remotePort
+	tunnelConn.localHost = localHost
 	tunnelConn.localPort = localPort
 	return tunnelConn
 }
@@ -55,7 +58,7 @@ func (self *TunnelConn) Tunnel(replyCh chan<- int) error {
 		return localErr
 	}
 	if Debug {
-		fmt.Printf("Connect local[:%d] successful!\n", self.localPort)
+		fmt.Printf("Connect local[%s:%d] successful!\n", self.localHost, self.localPort)
 	}
 
 	self.remoteConn = remoteConn
@@ -143,7 +146,7 @@ func (self *TunnelConn) connectRemote() (net.Conn, error) {
 }
 
 func (self *TunnelConn) connectLocal() (net.Conn, error) {
-	localAddr := fmt.Sprintf("%s:%d", "localhost", self.localPort)
+	localAddr := fmt.Sprintf("%s:%d", self.localHost, self.localPort)
 	return net.Dial("tcp", localAddr)
 }
 
@@ -156,6 +159,8 @@ const (
 type Tunnel struct {
 	assignedUrlInfo *AssignedUrlInfo
 	localPort       int
+	localHost				string
+	localTLS				bool
 	tunnelConns     []*TunnelConn
 	cmdChan         chan TunnelCommand
 }
@@ -177,7 +182,7 @@ func (self *Tunnel) startTunnel() error {
 	replyCh := make(chan int, self.assignedUrlInfo.MaxConnCount)
 	remoteHost := url.Host
 	for i := 0; i < self.assignedUrlInfo.MaxConnCount; i++ {
-		tunnelConn := NewTunnelConn(remoteHost, self.assignedUrlInfo.Port, self.localPort)
+		tunnelConn := NewTunnelConn(remoteHost, self.assignedUrlInfo.Port, self.localHost, self.localPort)
 		self.tunnelConns[i] = tunnelConn
 		go tunnelConn.Tunnel(replyCh)
 	}
@@ -197,7 +202,7 @@ L:
 }
 
 func (self *Tunnel) checkLocalPort() error {
-	localAddr := fmt.Sprintf("%s:%d", "localhost", self.localPort)
+	localAddr := fmt.Sprintf("%s:%d", self.localHost, self.localPort)
 	c, err := net.Dial("tcp", localAddr)
 	if err != nil {
 		return errors.New("can't connect local port!")
@@ -229,7 +234,9 @@ func (self *Tunnel) GetUrl(assignedDomain string) (string, error) {
 	return assignedUrlInfo.Url, nil
 }
 
-func (self *Tunnel) CreateTunnel(localPort int) error {
+func (self *Tunnel) CreateTunnel(localHost string, localPort int, localTLS bool) error {
+	self.localHost = localHost
 	self.localPort = localPort
+	self.localTLS = localTLS
 	return self.startTunnel()
 }
